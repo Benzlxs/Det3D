@@ -20,7 +20,7 @@ target_assigner = dict(
         dict(
             type="anchor_generator_range",
             sizes=[1.6, 3.9, 1.56],
-            anchor_ranges=[0, -40.0, -1.0, 70.4, 40.0, -1.0],
+            anchor_ranges=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
             rotations=[0, 1.57],
             matched_threshold=0.6,
             unmatched_threshold=0.45,
@@ -43,30 +43,29 @@ model = dict(
     type="VoxelNet",
     pretrained=None,
     reader=dict(
-        type="VoxelFeatureExtractorV3",
+        type="VoxelFeatureExtractorV2",
         # type='SimpleVoxel',
         num_input_features=4,
-        norm_cfg=norm_cfg,
     ),
     backbone=dict(
-        type="SpMiddleFHD", num_input_features=4, ds_factor=8, norm_cfg=norm_cfg,
+        type="tDBN_2", num_input_features=128, ds_factor=2, norm_cfg=norm_cfg,
     ),
     neck=dict(
-        type="RPN",
-        layer_nums=[5,],
-        ds_layer_strides=[1,],
-        ds_num_filters=[128,],
-        us_layer_strides=[1,],
-        us_num_filters=[128,],
-        num_input_features=128,
-        norm_cfg=norm_cfg,
-        logger=logging.getLogger("RPN"),
+        type="det_net_2",
+        #layer_nums=[5,],
+        #ds_layer_strides=[1,],
+        #ds_num_filters=[128,],
+        #us_layer_strides=[1,],
+        #us_num_filters=[128,],
+        #num_input_features=128,
+        #norm_cfg=norm_cfg,
+        #logger=logging.getLogger("RPN"),
     ),
     bbox_head=dict(
         # type='RPNHead',
         type="MultiGroupHead",
         mode="3d",
-        in_channels=sum([128,]),
+        in_channels=sum([256,]),
         norm_cfg=norm_cfg,
         tasks=tasks,
         weights=[1,],
@@ -159,9 +158,9 @@ val_preprocessor = dict(
 )
 
 voxel_generator = dict(
-    range=[0, -40.0, -3.0, 70.4, 40.0, 1.0],
-    voxel_size=[0.05, 0.05, 0.1],
-    max_points_in_voxel=5,
+    range=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
+    voxel_size=[0.2, 0.2, 0.3],
+    max_points_in_voxel=1,
     max_voxel_num=20000,
 )
 
@@ -188,7 +187,7 @@ val_anno = "/home/ben/Dataset/KITTI/kitti_infos_val.pkl"
 test_anno = None
 
 data = dict(
-    samples_per_gpu=5,
+    samples_per_gpu=3,
     workers_per_gpu=2,
     train=dict(
         type=dataset_type,

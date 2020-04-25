@@ -116,7 +116,7 @@ class VoxelFeatureExtractorV2(nn.Module):
         use_norm=True,
         num_filters=[32, 128],
         with_distance=False,
-        voxel_size=(0.2, 0.2, 4),
+        voxel_size=(0.2, 0.2, 0.3),
         name="VoxelFeatureExtractor",
     ):
         super(VoxelFeatureExtractorV2, self).__init__()
@@ -145,7 +145,7 @@ class VoxelFeatureExtractorV2(nn.Module):
         # var_torch_init(self.linear.bias)
         self.norm = BatchNorm1d(num_filters[-1])
 
-    def forward(self, features, num_voxels, coors):
+    def forward(self, features, num_voxels, coors=None):
         # features: [concated_num_points, num_voxel_size, 3(4)]
         # num_voxels: [concated_num_points]
         points_mean = features[:, :, :3].sum(dim=1, keepdim=True) / num_voxels.type_as(
