@@ -6,7 +6,7 @@ import torch
 from det3d.models.utils import Empty, change_default_args
 from det3d.torchie.cnn import constant_init, kaiming_init
 from det3d.torchie.trainer import load_checkpoint
-from spconv import SparseConv3d, SubMConv3d, SubMConv2d, SparseInverseConv3d, JoinTable, Identity, ConcatTable
+from spconv import SparseConv3d, SubMConv3d, SubMConv2d, SparseInverseConv3d, JoinTable, Identity, ConcatTable, AddTable
 from torch import nn
 from torch.nn import BatchNorm1d
 from torch.nn import functional as F
@@ -261,19 +261,19 @@ class tDBN_2(nn.Module):
         ## block1 and feature map 0, convert from voxel into 3D tensor
         # --------------------------------------
         for i, o in [[num_input_features, num_filter_fpn[0]]]: # , [num_filter_fpn[0], num_filter_fpn[0]]]:
-            middle_layers.add(SubMConv3d(i, o, 3, indice_key="subm_0", bias = False))
-            middle_layers.add(build_norm_layer(norm_cfg, o)[1])
-            middle_layers.add(nn.ReLU())
+            m.add(SubMConv3d(i, o, 3, indice_key="subm_0", bias = False))
+            m.add(build_norm_layer(norm_cfg, o)[1])
+            m.add(nn.ReLU())
 
         self.block_input = m
         m = spconv.SparseSequential()
 
         reps = 2
-        dimension = 3
-        residual_use = False # using residual block or not
+        # residual_use = False # using residual block or not
+        residual_use = True # using residual block or not
         _index = 0
         for _ in range(reps):
-            self.block(m, num_filter_fpn[0], num_filter_fpn[0], index=_index, residual_blocks = residual_use)
+            self.block(m, num_filter_fpn[0], num_filter_fpn[0], index=_index, residual_blocks = residual_use, norm_cfg=norm_cfg)
 
         self.x0_in = m
 
@@ -287,9 +287,9 @@ class tDBN_2(nn.Module):
 
             for _ in range(reps):
                 if k==4:
-                    self.block(m, num_filter_fpn[k], num_filter_fpn[k], dimension=2, residual_blocks = residual_use)
+                    self.block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, dimension=2, residual_blocks = residual_use, norm_cfg=norm_cfg)
                 else:
-                    self.block(m, num_filter_fpn[k], num_filter_fpn[k], dimension=3, residual_blocks = residual_use)
+                    self.block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, dimension=3, residual_blocks = residual_use, norm_cfg=norm_cfg)
             if k==1:
                 self.x1_in = m
             elif k==2:
@@ -316,7 +316,7 @@ class tDBN_2(nn.Module):
             m.add(JoinTable())
 
             for i in range(reps):
-                self.block(m, num_filter_fpn[k] * (2 if i == 0 else 1), num_filter_fpn[k], residual_blocks = residual_use)
+                self.block(m, num_filter_fpn[k] * (2 if i == 0 else 1), num_filter_fpn[k], index=(k+10), residual_blocks = residual_use, norm_cfg=norm_cfg)
 
             if k==2:
                 self.concate2 = m
@@ -341,20 +341,41 @@ class tDBN_2(nn.Module):
             elif k==0:
                 self.feature_map0 = m
 
+    def block_inside(self, i,o,index,norm_cfg):
+        mn=spconv.SparseSequential()
+        reps = 2
+
+        mn.add(build_norm_layer(norm_cfg, i)[1])
+        mn.add(nn.ReLU())
+        mn.add(SubMConv3d(i, i, 3, indice_key="su3_{}".format(index), bias = False))
+        mn.add(build_norm_layer(norm_cfg, i)[1])
+        mn.add(nn.ReLU())
+        mn.add(SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False))
+        # mn.add(build_norm_layer(norm_cfg, o)[1])
+        # mn.add(nn.ReLU())
 
 
+        return mn
 
 
-    def block(self, m, i, o, dimension=3, index=0, residual_blocks=False):  # default using residual_block
+    def block(self, m, i, o, dimension=3, index=0, residual_blocks=False, norm_cfg=None):  # default using residual_block
         if dimension == 3:  ## 3x3x3 convlution
             if residual_blocks: #ResNet style blocks
+                m.add(SubMConv3d(i, i, 3, indice_key="su3_{}".format(index), bias = False))
+                # m.add(build_norm_layer(norm_cfg, i)[1])
+                # m.add(nn.ReLU())
+
                 m.add(ConcatTable().add(
                     Identity()).add(
-                        spconv.SparseSequential().add(
-                            SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
-                            SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
-                                        )
-                    ).add(JoinTable())
+                        #spconv.SparseSequential().add(
+                        #    SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
+                        #    SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
+                     self.block_inside(i,o,index,norm_cfg)         )
+                    )
+                m.add(AddTable())
+                #m.add(SubMConv3d(2*o, o, 3, indice_key="su3_{}".format(index), bias = False))
+                m.add(build_norm_layer(norm_cfg, o)[1])
+                m.add(nn.ReLU())
             else:
                 m.add(
                     spconv.SparseSequential().add(
@@ -369,14 +390,13 @@ class tDBN_2(nn.Module):
                             SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
                             SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
                                         )
-                    ).add(JoinTable())
+                    ).add(AddTable())
             else:
                 m.add(
                     spconv.SparseSequential().add(
                         SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
                         SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
                         )
-
 
 
 
@@ -413,6 +433,8 @@ class tDBN_2(nn.Module):
         ret = spconv.SparseConvTensor(voxel_features, coors, sparse_shape, batch_size)
 
         output = {}
+        ret = self.block_input(ret)
+
         x0 = self.x0_in(ret)
         x1 = self.x1_in(x0)
         x2 = self.x2_in(x1)
