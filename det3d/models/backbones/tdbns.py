@@ -88,6 +88,58 @@ class SparseBasicBlock(spconv.SparseModule):
 
         return out
 
+def block_inside(i,o,index,norm_cfg):
+    mn=spconv.SparseSequential()
+    reps = 2
+
+    mn.add(build_norm_layer(norm_cfg, i)[1])
+    mn.add(nn.ReLU())
+    mn.add(SubMConv3d(i, i, 3, indice_key="su3_{}".format(index), bias = False))
+    mn.add(build_norm_layer(norm_cfg, i)[1])
+    mn.add(nn.ReLU())
+    mn.add(SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False))
+    # mn.add(build_norm_layer(norm_cfg, o)[1])
+    # mn.add(nn.ReLU())
+
+    return mn
+
+
+def block(m, i, o, dimension=3, index=0, residual_blocks=False, norm_cfg=None):  # default using residual_block
+    if dimension == 3:  ## 3x3x3 convlution
+        if residual_blocks: #ResNet style blocks
+            m.add(SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False))
+            m.add(ConcatTable().add(
+                Identity()).add(
+                 block_inside(o,o,index,norm_cfg))
+                )
+            m.add(AddTable())
+            #m.add(SubMConv3d(2*o, o, 3, indice_key="su3_{}".format(index), bias = False))
+            m.add(build_norm_layer(norm_cfg, o)[1])
+            m.add(nn.ReLU())
+        else:
+            m.add(SubMConv3d(i, i, 3, indice_key="su3_{}".format(index), bias = False))
+            m.add(build_norm_layer(norm_cfg, i)[1])
+            m.add(nn.ReLU())
+
+            m.add(SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False))
+            m.add(build_norm_layer(norm_cfg, o)[1])
+            m.add(nn.ReLU())
+
+    else:   # 2x2x2 convoltion
+        if residual_blocks: #ResNet style blocks
+            m.add(ConcatTable().add(
+                Identity()).add(
+                        SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
+                        SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
+                ).add(AddTable())
+        else:
+            m.add(
+                spconv.SparseSequential().add(
+                    SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
+                    SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
+                    )
+
+
 @BACKBONES.register_module
 class tDBN_1(nn.Module):
     def __init__(
@@ -127,6 +179,9 @@ class tDBN_1(nn.Module):
         # dense function add later
         self.feature_map0 =  middle_layers
 
+        reps = 2
+        residual_use = True
+
         middle_layers = spconv.SparseSequential()
          ## block1-3 and feature map1-3
         for k in range(1, 4):
@@ -141,10 +196,10 @@ class tDBN_1(nn.Module):
             # dense function add later
 
             # 128*7*199*175 recurrent
-            for i, o in [[num_filter_fpn[k], num_filter_fpn[k]], [num_filter_fpn[k], num_filter_fpn[k]]]:
-                middle_layers.add(SubMConv3d(i, o, 3, indice_key="subm_{}".format(k) , bias = False))
-                middle_layers.add(build_norm_layer(norm_cfg, o)[1])
-                middle_layers.add(nn.ReLU())
+
+            for _ in range(reps):
+                block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, residual_blocks = residual_use, norm_cfg=norm_cfg)
+
 
             if k==1:
                 self.block1 = middle_layers
@@ -273,7 +328,7 @@ class tDBN_2(nn.Module):
         residual_use = True # using residual block or not
         _index = 0
         for _ in range(reps):
-            self.block(m, num_filter_fpn[0], num_filter_fpn[0], index=_index, residual_blocks = residual_use, norm_cfg=norm_cfg)
+            block(m, num_filter_fpn[0], num_filter_fpn[0], index=_index, residual_blocks = residual_use, norm_cfg=norm_cfg)
 
         self.x0_in = m
 
@@ -287,9 +342,9 @@ class tDBN_2(nn.Module):
 
             for _ in range(reps):
                 if k==4:
-                    self.block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, dimension=2, residual_blocks = residual_use, norm_cfg=norm_cfg)
+                    block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, dimension=2, residual_blocks = residual_use, norm_cfg=norm_cfg)
                 else:
-                    self.block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, dimension=3, residual_blocks = residual_use, norm_cfg=norm_cfg)
+                    block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, dimension=3, residual_blocks = residual_use, norm_cfg=norm_cfg)
             if k==1:
                 self.x1_in = m
             elif k==2:
@@ -316,7 +371,7 @@ class tDBN_2(nn.Module):
             m.add(JoinTable())
 
             for i in range(reps):
-                self.block(m, num_filter_fpn[k] * (2 if i == 0 else 1), num_filter_fpn[k], index=(k+100), residual_blocks = residual_use, norm_cfg=norm_cfg)
+                block(m, num_filter_fpn[k] * (2 if i == 0 else 1), num_filter_fpn[k], index=(k+100), residual_blocks = residual_use, norm_cfg=norm_cfg)
 
             if k==2:
                 self.concate2 = m
@@ -340,67 +395,6 @@ class tDBN_2(nn.Module):
                 self.feature_map1 = m
             elif k==0:
                 self.feature_map0 = m
-
-    def block_inside(self, i,o,index,norm_cfg):
-        mn=spconv.SparseSequential()
-        reps = 2
-
-        mn.add(build_norm_layer(norm_cfg, i)[1])
-        mn.add(nn.ReLU())
-        mn.add(SubMConv3d(i, i, 3, indice_key="su3_{}".format(index), bias = False))
-        mn.add(build_norm_layer(norm_cfg, i)[1])
-        mn.add(nn.ReLU())
-        mn.add(SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False))
-        # mn.add(build_norm_layer(norm_cfg, o)[1])
-        # mn.add(nn.ReLU())
-
-
-        return mn
-
-
-    def block(self, m, i, o, dimension=3, index=0, residual_blocks=False, norm_cfg=None):  # default using residual_block
-        if dimension == 3:  ## 3x3x3 convlution
-            if residual_blocks: #ResNet style blocks
-                m.add(SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False))
-                # m.add(build_norm_layer(norm_cfg, i)[1])
-                # m.add(nn.ReLU())
-
-                m.add(ConcatTable().add(
-                    Identity()).add(
-                        #spconv.SparseSequential().add(
-                        #    SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
-                        #    SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
-                     self.block_inside(o,o,index,norm_cfg)         )
-                    )
-                m.add(AddTable())
-                #m.add(SubMConv3d(2*o, o, 3, indice_key="su3_{}".format(index), bias = False))
-                m.add(build_norm_layer(norm_cfg, o)[1])
-                m.add(nn.ReLU())
-            else:
-                m.add(SubMConv3d(i, i, 3, indice_key="su3_{}".format(index), bias = False))
-                m.add(build_norm_layer(norm_cfg, i)[1])
-                m.add(nn.ReLU())
-
-                m.add(SubMConv3d(i, o, 3, indice_key="su3_{}".format(index), bias = False))
-                m.add(build_norm_layer(norm_cfg, o)[1])
-                m.add(nn.ReLU())
-
-        else:   # 2x2x2 convoltion
-            if residual_blocks: #ResNet style blocks
-                m.add(ConcatTable().add(
-                    Identity()).add(
-                        spconv.SparseSequential().add(
-                            SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
-                            SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
-                                        )
-                    ).add(AddTable())
-            else:
-                m.add(
-                    spconv.SparseSequential().add(
-                        SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU()).add(
-                        SubMConv2d(i, o, 3, indice_key="su2_{}".format(index), bias = False)).add(build_norm_layer(norm_cfg, o)[1]).add(nn.ReLU())
-                        )
-
 
 
     def init_weights(self, pretrained=None):
@@ -465,6 +459,191 @@ class tDBN_2(nn.Module):
 
         N, C, D, H, W = x3_out.shape
         output[3] = x3_out.view(N, C*D, H, W)
+
+        return output
+
+
+@BACKBONES.register_module
+class tDBN_1_bv(nn.Module):
+    def __init__(
+            self,
+            num_input_features=4,
+            num_filters_down = [16, 32, 64, 64, 96, 128],
+            dimension_feature_map = [ 128, 128, 128, 128 ],
+            norm_cfg=None,
+            name="tDBN_1",
+            **kwargs
+            ):
+        super(tDBN_1_bv, self).__init__()
+        self.name = name
+
+        self.dcn = None
+        self.zero_init_residual = False
+
+        if norm_cfg is None:
+            norm_cfg = dict(type="BN1d", eps=1e-3, momentum=0.01)
+
+        middle_layers = spconv.SparseSequential()
+
+        input_filters_layers  =  num_filters_down[:4]  # feature channels in the raw data
+        num_filter_fpn = num_filters_down[-4:]
+        dimension_feature_map = dimension_feature_map
+        dimension_kernel_size = [15,  7,   3,  1 ]
+
+
+
+        self.block0 = spconv.SparseSequential(
+            SubMConv3d(num_input_features, 16, 3, bias=True, indice_key="subm0"),
+            # build_norm_layer(norm_cfg, 16)[1],
+            nn.ReLU(),
+            SubMConv3d(16, 16, 3, bias=True, indice_key="subm0"),
+            # build_norm_layer(norm_cfg, 16)[1],
+            nn.ReLU(),
+            SparseConv3d(
+                16, 32, 3, 2, padding = 1, bias=True
+            ),  # [1600, 1200, 41] -> [800, 600, 21]
+            # build_norm_layer(norm_cfg, 32)[1],
+            nn.ReLU(),
+            SubMConv3d(32, 32, 3, indice_key="subm1", bias=True),
+            # build_norm_layer(norm_cfg, 32)[1],
+            nn.ReLU(),
+            SubMConv3d(32, 32, 3, indice_key="subm1", bias=True),
+            # build_norm_layer(norm_cfg, 32)[1],
+            nn.ReLU(),
+            SparseConv3d(
+                32, 64, 3, 2, padding = [0, 2, 2], bias=True
+            ),  # [800, 600, 21] -> [400, 300, 11]
+            # build_norm_layer(norm_cfg, 64)[1],
+            nn.ReLU(),
+            SubMConv3d(64, 64, 3, indice_key="subm2", bias=True),
+            # build_norm_layer(norm_cfg, 64)[1],
+            nn.ReLU(),
+            SubMConv3d(64, 64, 3, indice_key="subm2", bias=True),
+            # build_norm_layer(norm_cfg, 64)[1],
+            nn.ReLU(),
+            SubMConv3d(64, 64, 3, indice_key="subm2", bias=True),
+            # build_norm_layer(norm_cfg, 64)[1],
+            nn.ReLU(),
+        )
+
+        # self.block0 = middle_layers
+        m = spconv.SparseSequential()
+
+        m.add(
+            SparseConv3d(
+                num_filter_fpn[0],
+                dimension_feature_map[0],
+                (dimension_kernel_size[0], 1, 1), (2, 1, 1),bias=False)
+            )
+        m.add(build_norm_layer(norm_cfg, dimension_feature_map[0])[1])
+        m.add(nn.ReLU())
+        # dense function add later
+        self.feature_map0 =  m
+
+        reps = 2
+        residual_use = True # using residual block or not
+
+        m  = spconv.SparseSequential()
+         ## block1-3 and feature map1-3
+        for k in range(1, 4):
+            m.add(
+                SparseConv3d(
+                    num_filter_fpn[k-1],
+                    num_filter_fpn[k],
+                    3, 2, bias=False)
+                    )
+            m.add(build_norm_layer(norm_cfg, num_filter_fpn[k])[1])
+            m.add(nn.ReLU())
+            # dense function add later
+
+            for _ in range(reps):
+                block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, residual_blocks = residual_use, norm_cfg=norm_cfg)
+
+            if k==1:
+                self.block1 = m
+            elif k==2:
+                self.block2 = m
+            elif k==3:
+                self.block3 = m
+
+            m = spconv.SparseSequential()
+
+            m.add(
+                SparseConv3d(
+                    num_filter_fpn[k],
+                    dimension_feature_map[k],
+                    (dimension_kernel_size[k], 1, 1), (2, 1, 1),bias=False)
+                )
+            m.add(build_norm_layer(norm_cfg, dimension_feature_map[k])[1])
+            m.add(nn.ReLU())
+            # adding dense in forward step
+
+            if   k==1 :
+                self.feature_map1 = m
+            elif k==2:
+                self.feature_map2 = m
+            elif k==3:
+                self.feature_map3 = None   # convert the sparse data into dense one
+                # Sequential(scn.SparseToDense(3, dimension_feature_map[k]))  ## last one is the 2D instead of 3D
+
+            m = spconv.SparseSequential()
+
+    def init_weights(self, pretrained=None):
+        if isinstance(pretrained, str):
+            logger = logging.getLogger()
+            load_checkpoint(self, pretrained, strict=False, logger=logger)
+        elif pretrained is None:
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    kaiming_init(m)
+                elif isinstance(m, (_BatchNorm, nn.GroupNorm)):
+                    constant_init(m, 1)
+
+            if self.dcn is not None:
+                for m in self.modules():
+                    if isinstance(m, Bottleneck) and hasattr(m, "conv2_offset"):
+                        constant_init(m.conv2_offset, 0)
+
+            if self.zero_init_residual:
+                for m in self.modules():
+                    if isinstance(m, Bottleneck):
+                        constant_init(m.norm3, 0)
+                    elif isinstance(m, BasicBlock):
+                        constant_init(m.norm2, 0)
+        else:
+            raise TypeError("pretrained must be a str or None")
+
+
+    def forward(self, voxel_features, coors, batch_size, input_shape):
+        # input: # [41, 1600, 1408]
+        sparse_shape = np.array(input_shape[::-1]) + [1, 0, 0]
+        coors = coors.int()
+        ret = spconv.SparseConvTensor(voxel_features, coors, sparse_shape, batch_size)
+
+        output = {}
+        for k in range(4):
+            if k == 0:
+                ret = self.block0(ret)
+            elif k==1:
+                ret = self.block1(ret)
+            elif k==2:
+                ret = self.block2(ret)
+            elif k==3:
+                ret = self.block3(ret)
+
+            temp = []
+
+            if k==0:
+                temp = self.feature_map0(ret).dense() # D: 5
+            elif k==1:
+                temp = self.feature_map1(ret).dense() # D: 3
+            elif k==2:
+                temp = self.feature_map2(ret).dense() # D: 2
+            elif k==3:
+                temp = ret.dense()
+
+            N, C, D, H, W = temp.shape
+            output[k] = temp.view(N, C*D, H, W)
 
         return output
 
