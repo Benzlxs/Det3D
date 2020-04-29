@@ -185,20 +185,31 @@ class tDBN_1(nn.Module):
         middle_layers = spconv.SparseSequential()
          ## block1-3 and feature map1-3
         for k in range(1, 4):
-            middle_layers.add(
-                SparseConv3d(
-                    num_filter_fpn[k-1],
-                    num_filter_fpn[k],
-                    3, 2, bias=False)
-                    )
-            middle_layers.add(build_norm_layer(norm_cfg, num_filter_fpn[k])[1])
-            middle_layers.add(nn.ReLU())
-            # dense function add later
+            if k ==3:
+                middle_layers.add(
+                    SparseConv3d(
+                        num_filter_fpn[k-1],
+                        num_filter_fpn[k],
+                        3, 2, bias=False)
+                        )
+                middle_layers.add(build_norm_layer(norm_cfg, num_filter_fpn[k])[1])
+                middle_layers.add(nn.ReLU())
+                # dense function add later
+            else:
+                middle_layers.add(
+                    SparseConv3d(
+                        num_filter_fpn[k-1],
+                        num_filter_fpn[k],
+                        3, 2, bias=False)
+                        )
+                middle_layers.add(build_norm_layer(norm_cfg, num_filter_fpn[k])[1])
+                middle_layers.add(nn.ReLU())
+
 
             # 128*7*199*175 recurrent
 
             for _ in range(reps):
-                block(m, num_filter_fpn[k], num_filter_fpn[k], index=k, residual_blocks = residual_use, norm_cfg=norm_cfg)
+                block(middle_layers, num_filter_fpn[k], num_filter_fpn[k], index=k, residual_blocks = residual_use, norm_cfg=norm_cfg)
 
 
             if k==1:

@@ -75,6 +75,43 @@ class KittiDataset(PointCloudDataset):
 
         return gt_annos
 
+
+    def ground_truth_annotations_with_range_limits(self, range_limits):
+        if "annos" not in self._kitti_infos[0]:
+            return None
+        # y is vertical direction, in KITTI camera coordinate
+        z_min = range_limits[0]
+        x_min = range_limits[1]
+        z_max = range_limits[3]
+        x_max = range_limits[4]
+
+        gt_annos = [info["annos"] for info in self._kitti_infos]
+
+        gt_annos_clear = []
+
+
+        keys = ['name', 'truncated', 'occluded', 'alpha', 'bbox', 'dimensions', 'location', 'rotation_y', 'score', 'index', 'group_ids', 'difficulty', 'num_points_in_gt']
+        spare_key = ['metadata']
+        for anno in gt_annos:
+            del_ind_list = []
+            location_xyz = anno['location']
+            for i in range(location_xyz.shape[0]):
+                _x = location_xyz[i,0]
+                _z = location_xyz[i,2]
+                if (_x < x_min) or (_x>x_max) or (_z < z_min) or (_z > z_max):
+                    del_ind_list.append(i)
+            if del_ind_list is not []:
+                for key in keys:
+                    #anno[key] = np.delete(anno[key], del_ind_list)
+                    anno[key] = np.delete(anno[key], del_ind_list, axis=0)
+
+            gt_annos_clear.append(anno)
+
+
+
+        return gt_annos_clear
+
+
     def convert_detection_to_kitti_annos(self, detection):
         class_names = self._class_names
         det_image_idxes = [k for k in detection.keys()]
@@ -157,13 +194,17 @@ class KittiDataset(PointCloudDataset):
             annos[-1]["metadata"] = det["metadata"]
         return annos
 
-    def evaluation(self, detections, output_dir=None):
+    def evaluation(self, detections, output_dir=None, gt_range_limits = None ):
         """
         detection
         When you want to eval your own dataset, you MUST set correct
         the z axis and box z center.
         """
-        gt_annos = self.ground_truth_annotations
+        if gt_range_limits is None:
+            gt_annos = self.ground_truth_annotations
+        else:
+            gt_annos = self.ground_truth_annotations_with_range_limits(gt_range_limits)
+
         dt_annos = self.convert_detection_to_kitti_annos(detections)
 
         # firstly convert standard detection to kitti-format dt annos

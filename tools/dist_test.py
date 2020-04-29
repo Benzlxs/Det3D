@@ -158,7 +158,8 @@ def main():
     for p in all_predictions:
         predictions.update(p)
 
-    result_dict, _ = dataset.evaluation(predictions, output_dir=args.work_dir)
+    result_dict, _ = dataset.evaluation(predictions, output_dir=args.work_dir, gt_range_limits=cfg.test_cfg.post_center_limit_range)
+    # result_dict, _ = dataset.evaluation(predictions, output_dir=args.work_dir)
 
     for k, v in result_dict["results"].items():
         print(f"Evaluation {k}: {v}")
