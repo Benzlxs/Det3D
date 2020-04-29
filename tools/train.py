@@ -103,6 +103,11 @@ def main():
         logger.info("Set random seed to {}".format(args.seed))
         set_random_seed(args.seed)
 
+
+    # make sure that ranges are the same
+    assert cfg.target_assigner.anchor_generators[0].anchor_ranges == cfg.test_cfg.post_center_limit_range, "ranges should be consistent"
+    assert cfg.target_assigner.anchor_generators[0].anchor_ranges == cfg.voxel_generator.range, "ranges should be consistent"
+
     model = build_detector(cfg.model, train_cfg=cfg.train_cfg, test_cfg=cfg.test_cfg)
 
     datasets = [build_dataset(cfg.data.train)]
