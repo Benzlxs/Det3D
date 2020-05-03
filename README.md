@@ -25,7 +25,7 @@ Please refer to [INSTALATION.md](INSTALLATION.md).
 Please refer to [GETTING_STARTED.md](GETTING_STARTED.md).
 
 ## Model Zoo and Baselines
-### [3DBN](https://github.com/Benzlxs/Det3D/blob/master/examples/tdbn/config/tdbn2_det2_vef_70.py) on KITTI(val) Dataset 3:1
+### [3DBN](https://github.com/Benzlxs/Det3D/blob/master/examples/tdbn/config/tdbn2_det2_bv_50.py) on KITTI(val) Dataset 3:1
 ```
 bbox AP:90.55, 89.42, 88.24
 bev  AP:90.20, 88.30, 79.59
