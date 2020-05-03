@@ -50,8 +50,8 @@ def test(
 
     if not is_main_process():
         return
-
-    return dataset.evaluation(predictions, str(save_dir))
+    return predictions
+    #return dataset.evaluation(predictions, str(save_dir))
 
 
 def compute_on_dataset(model, data_loader, device, timer=None, show=False):
@@ -96,7 +96,7 @@ def _accumulate_predictions_from_multiple_gpus(predictions_per_gpu):
 def parse_args():
     parser = argparse.ArgumentParser(description="MegDet test detector")
     parser.add_argument("config", help="test config file path")
-    parser.add_argument("checkpoint", help="checkpoint file")
+    parser.add_argument("--checkpoint", help="checkpoint file")
     parser.add_argument("--out", help="output result file")
     parser.add_argument(
         "--json_out", help="output result file name without extension", type=str
@@ -144,7 +144,7 @@ def main():
         torch.backends.cudnn.benchmark = True
 
     # cfg.model.pretrained = None
-    # cfg.data.test.test_mode = True
+    cfg.data.test.test_mode = True
     cfg.data.val.test_mode = True
 
     # init distributed env first, since logger depends on the dist info.
@@ -157,7 +157,7 @@ def main():
     # build the dataloader
     # TODO: support multiple images per gpu (only minor changes are needed)
     # dataset = build_dataset(cfg.data.test)
-    dataset = build_dataset(cfg.data.val)
+    dataset = build_dataset(cfg.data.test)
     data_loader = build_dataloader(
         dataset,
         batch_size=cfg.data.samples_per_gpu,
@@ -168,6 +168,7 @@ def main():
 
     # build the model and load checkpoint
     model = build_detector(cfg.model, train_cfg=None, test_cfg=cfg.test_cfg)
+    model.eval()
 
     checkpoint = load_checkpoint(model, args.checkpoint, map_location="cpu")
     # old versions did not save class info in checkpoints, this walkaround is
@@ -178,12 +179,13 @@ def main():
         model.CLASSES = dataset.CLASSES
 
     model = MegDataParallel(model, device_ids=[0])
-    result_dict, detections = test(
+    # result_dict, detections = test(
+    detections = test(
         data_loader, model, save_dir=None, distributed=distributed
     )
 
-    for k, v in result_dict["results"].items():
-        print(f"Evaluation {k}: {v}")
+    #for k, v in result_dict["results"].items():
+    #    print(f"Evaluation {k}: {v}")
 
     rank, _ = get_dist_info()
     if args.out and rank == 0:
@@ -192,11 +194,14 @@ def main():
 
     if args.txt_result:
         res_dir = os.path.join(os.getcwd(), "predictions")
+        import pudb
+        pudb.set_trace()
         for dt in detections:
             with open(
-                os.path.join(res_dir, "%06d.txt" % int(dt["metadata"]["token"])), "w"
+                os.path.join(res_dir, "%06d.txt" % int(dt)), "w"
             ) as fout:
-                lines = kitti.annos_to_kitti_label(dt)
+                detections[dt]['name'] = detections[dt]['box3d_lidar']
+                lines = kitti.annos_to_kitti_label(detections[dt])
                 for line in lines:
                     fout.write(line + "\n")
 

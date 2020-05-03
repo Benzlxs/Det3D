@@ -20,8 +20,8 @@ target_assigner = dict(
         dict(
             type="anchor_generator_range",
             sizes=[1.6, 3.9, 1.56],
-            # anchor_ranges=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
-            anchor_ranges = [0, -30.3, -3.25, 51., 30.3, 1.25],
+            # anchor_ranges=[0,-39.9875, -3.0, 70.375, 39.9875, 1.1275],
+            anchor_ranges=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
             rotations=[0, 1.57],
             matched_threshold=0.6,
             unmatched_threshold=0.45,
@@ -44,12 +44,13 @@ model = dict(
     type="VoxelNet",
     pretrained=None,
     reader=dict(
-        type="VoxelFeatureExtractorV2",
+        # type="VoxelFeatureExtractorV2",
+        type = "VoxelFeatureExtractorV3",
         # type='SimpleVoxel',
         num_input_features=4,
     ),
     backbone=dict(
-        type="tDBN_1", num_input_features=128, ds_factor=2, norm_cfg=norm_cfg,
+        type="tDBN_2_bv", num_input_features=4, ds_factor=8, norm_cfg=norm_cfg,
     ),
     neck=dict(
         type="det_net_2",
@@ -113,8 +114,7 @@ test_cfg = dict(
         nms_iou_threshold=0.01,
     ),
     score_threshold=0.3,
-    # post_center_limit_range=[0, -40.0, -5.0, 70.4, 40.0, 5.0],
-    post_center_limit_range = [0, -30.3, -3.25, 51., 30.3, 1.25],
+    post_center_limit_range=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
     max_per_img=100,
 )
 
@@ -160,9 +160,10 @@ val_preprocessor = dict(
 )
 
 voxel_generator = dict(
-    # range=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
-    range = [0, -30.3, -3.25, 51., 30.3, 1.25],
-    voxel_size=[0.2, 0.2, 0.3],
+    # range=[0,-39.9875, -3.0, 70.375, 39.9875, 1.1275],
+    # voxel_size=[0.025, 0.025, 0.0325],
+    range=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
+    voxel_size=[0.05, 0.05, 0.07],
     max_points_in_voxel=1,
     max_voxel_num=20000,
 )
@@ -190,8 +191,8 @@ val_anno = "/home/ben/Dataset/KITTI/kitti_infos_val.pkl"
 test_anno = None
 
 data = dict(
-    samples_per_gpu=1,  #4,
-    workers_per_gpu=1, # 2,
+    samples_per_gpu=1,
+    workers_per_gpu=1,
     train=dict(
         type=dataset_type,
         root_path=data_root,
@@ -238,7 +239,7 @@ log_config = dict(
 )
 # yapf:enable
 # runtime settings
-total_epochs = 90
+total_epochs = 60
 device_ids = range(8)
 dist_params = dict(backend="nccl", init_method="env://")
 log_level = "INFO"

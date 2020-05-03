@@ -38,6 +38,7 @@ class KittiDataset(PointCloudDataset):
         self._num_point_features = __class__.NumPointFeatures
         # print("remain number of infos:", len(self._kitti_infos))
         self._class_names = class_names
+        # self.plane_dir = "/home/ben/Dataset/KITTI/testing/planes"
         self.plane_dir = "/home/ben/Dataset/KITTI/training/planes"
 
     def __len__(self):

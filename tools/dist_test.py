@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import sys
+import time
 
 import apex
 import numpy as np
@@ -128,12 +129,17 @@ def main():
 
     detections = {}
     cpu_device = torch.device("cpu")
-
+    all_time = 0.
+    num_f = 0
     for i, data_batch in enumerate(data_loader):
         with torch.no_grad():
+            # t0 = time.time()
             outputs = batch_processor(
                 model, data_batch, train_mode=False, local_rank=args.local_rank,
             )
+            # print("Process one frame time:{}".format(time.time() - t0))
+            # all_time += time.time() - t0
+            num_f +=1
         for output in outputs:
             token = output["metadata"]["token"]
             for k, v in output.items():
@@ -146,7 +152,7 @@ def main():
             )
             if args.local_rank == 0:
                 prog_bar.update()
-
+    # print("Average one batch time:{}".format(all_time/num_f))
     synchronize()
 
     all_predictions = all_gather(detections)

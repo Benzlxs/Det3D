@@ -21,7 +21,7 @@ target_assigner = dict(
             type="anchor_generator_range",
             sizes=[1.6, 3.9, 1.56],
             # anchor_ranges=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
-            anchor_ranges = [0, -30.3, -3.25, 51., 30.3, 1.25],
+            anchor_ranges = [0,  -19.1, -3.25,  20.4, 19.1, 1.25],
             rotations=[0, 1.57],
             matched_threshold=0.6,
             unmatched_threshold=0.45,
@@ -114,7 +114,7 @@ test_cfg = dict(
     ),
     score_threshold=0.3,
     # post_center_limit_range=[0, -40.0, -5.0, 70.4, 40.0, 5.0],
-    post_center_limit_range = [0, -30.3, -3.25, 51., 30.3, 1.25],
+    post_center_limit_range = [0,  -19.1, -3.25,  20.4, 19.1, 1.25],
     max_per_img=100,
 )
 
@@ -161,7 +161,7 @@ val_preprocessor = dict(
 
 voxel_generator = dict(
     # range=[0, -39.9, -3.25, 70.2, 39.9, 1.25],
-    range = [0, -30.3, -3.25, 51., 30.3, 1.25],
+    range = [0,  -19.1, -3.25,  20.4, 19.1, 1.25],
     voxel_size=[0.2, 0.2, 0.3],
     max_points_in_voxel=1,
     max_voxel_num=20000,
@@ -190,8 +190,8 @@ val_anno = "/home/ben/Dataset/KITTI/kitti_infos_val.pkl"
 test_anno = None
 
 data = dict(
-    samples_per_gpu=1,  #4,
-    workers_per_gpu=1, # 2,
+    samples_per_gpu=7,
+    workers_per_gpu=2,
     train=dict(
         type=dataset_type,
         root_path=data_root,
@@ -238,7 +238,7 @@ log_config = dict(
 )
 # yapf:enable
 # runtime settings
-total_epochs = 90
+total_epochs = 60
 device_ids = range(8)
 dist_params = dict(backend="nccl", init_method="env://")
 log_level = "INFO"
