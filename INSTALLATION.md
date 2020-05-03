@@ -8,7 +8,7 @@
 - CUDA 10.0 or higher
 - CMake 3.13.2 or higher
 - [APEX](https://github.com/nvidia/apex)
-- [spconv](https://github.com/Benzlxs/spconv) 
+- [spconv](https://github.com/Benzlxs/spconv) (A variation of original version)
 - [nuscenes-devkit](https://github.com/poodarchu/nuscenes/)
 
 **spconv and nuscenes-devkit should be the specific version from link above**
