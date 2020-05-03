@@ -25,26 +25,14 @@ Please refer to [INSTALATION.md](INSTALLATION.md).
 Please refer to [GETTING_STARTED.md](GETTING_STARTED.md).
 
 ## Model Zoo and Baselines
-
-### [Second](examples/second/configs/kitti_car_vfev3_spmiddlefhd_rpn1_mghead_syncbn.py) on KITTI(val) Dataset
-
+### [3DBN](https://github.com/Benzlxs/Det3D/blob/master/examples/tdbn/config/tdbn2_det2_vef_70.py) on KITTI(val) Dataset 3:1
 ```
-car  AP @0.70, 0.70,  0.70:
-bbox AP:90.54, 89.35, 88.43
-bev  AP:89.89, 87.75, 86.81
-3d   AP:87.96, 78.28, 76.99
-aos  AP:90.34, 88.81, 87.66
+bbox AP:90.55, 89.42, 88.24
+bev  AP:90.20, 88.30, 79.59
+3d   AP:89.43, 85.48, 77.36
+aos  AP:89.85, 88.14, 86.94
 ```
 
-### [PointPillars](examples/point_pillars/configs/kitti_point_pillars_mghead_syncbn.py) on KITTI(val) Dataset
-
-```	
-car  AP@0.70,  0.70,  0.70:
-bbox AP:90.63, 88.86, 87.35
-bev  AP:89.75, 86.15, 83.00
-3d   AP:85.75, 75.68, 68.93
-aos  AP:90.48, 88.36, 86.58
-```
 
 ### To Be Released
 
