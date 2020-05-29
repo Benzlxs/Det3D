@@ -64,12 +64,6 @@ aos  AP:89.85, 88.14, 86.94
   - [ ] PointRCNN
   - [ ] PIXOR
 
-## Developers
-
-[Benjin Zhu](https://github.com/poodarchu/) , [Bingqi Ma](https://github.com/a157801)
-
-## License
-
 Det3D is released under the [Apache licenes](LICENES).
 
 ## Acknowledgement
